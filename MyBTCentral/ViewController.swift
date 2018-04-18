@@ -24,9 +24,20 @@ class ViewController: UIViewController {
     @IBOutlet weak var lblNumber: UILabel!
     @IBOutlet weak var switchStatus: UISwitch!
 
+    @IBAction func switchValueChange(_ sender: UISwitch) {
+        let writeDate: Data!
+        if sender.isOn {
+            writeDate = "ON".data(using: .utf8)
+        } else {
+            writeDate = "OFF".data(using: .utf8)
+        }
+        foundedPeripheral.writeValue(writeDate, for: ctWriteable, type: .withResponse)
+    }
+
     override func viewDidLoad() {
         super.viewDidLoad()
         // Do any additional setup after loading the view, typically from a nib.
+        let globalQueue = DispatchQueue.global(qos: .default)
         centralManager = CBCentralManager(delegate: self, queue: nil)
 
     }
@@ -71,6 +82,7 @@ extension ViewController: CBCentralManagerDelegate {
 
 }
 extension ViewController: CBPeripheralDelegate {
+    // didDiscoverServices
     func peripheral(_ peripheral: CBPeripheral, didDiscoverServices error: Error?) {
         if error != nil {
             print("found error didDisCoverServices")
@@ -81,11 +93,41 @@ extension ViewController: CBPeripheralDelegate {
                 if service.uuid.uuidString == strService {
                     textInfo.text = textInfo.text + "\n found \(strService)"
                     self.view.backgroundColor = UIColor.green
+                    // discoverCharacteristics
+                    peripheral.discoverCharacteristics(nil, for: service)
                 }
             }
         }
     }
+    func peripheral(_ peripheral: CBPeripheral, didDiscoverCharacteristicsFor service: CBService, error: Error?) {
+        if error != nil {
+            print("found error didDiscoverCharacteristicsFor")
+            return
+        }
+        if let chara = service.characteristics {
+            for characteristic in chara {
+                if characteristic.uuid.uuidString == strCharacteristic1 {
+                    textInfo.text = textInfo.text + "\n found characteristic1 \(strCharacteristic1)"
+                    peripheral.setNotifyValue(true, for: characteristic)
+                }
+                if characteristic.uuid.uuidString == strCharacteristic2 {
+                    textInfo.text = textInfo.text + "\n found characteristic2 \(strCharacteristic2)"
+                    ctWriteable = characteristic
+                }
 
+            }
+        }
+    }
+    func peripheral(_ peripheral: CBPeripheral, didUpdateNotificationStateFor characteristic: CBCharacteristic, error: Error?) {
+        if error != nil {
+            print("found error didUpdateValueFor")
+            return
+        }
+        let strData = String(data: characteristic.value!, encoding: .utf8)
+        DispatchQueue.main.async {
+            self.lblNumber.text = strData
+        }
+    }
 
 }
 
